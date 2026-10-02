@@ -1,0 +1,45 @@
+---
+- name: Create monitoring directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - /opt/monitoring/prometheus
+    - /opt/monitoring/alertmanager
+    - /opt/monitoring/grafana/provisioning/datasources
+
+- name: Install Prometheus configuration
+  ansible.builtin.template:
+    src: prometheus.yml.j2
+    dest: /opt/monitoring/prometheus/prometheus.yml
+    mode: "0644"
+
+- name: Install Prometheus alert rules
+  ansible.builtin.copy:
+    src: alerts.yml
+    dest: /opt/monitoring/prometheus/alerts.yml
+    mode: "0644"
+
+- name: Install Alertmanager configuration
+  ansible.builtin.copy:
+    src: alertmanager.yml
+    dest: /opt/monitoring/alertmanager/alertmanager.yml
+    mode: "0644"
+
+- name: Provision Grafana datasource
+  ansible.builtin.copy:
+    src: datasource.yml
+    dest: /opt/monitoring/grafana/provisioning/datasources/prometheus.yml
+    mode: "0644"
+
+- name: Install monitoring Compose definition
+  ansible.builtin.template:
+    src: compose.yml.j2
+    dest: /opt/monitoring/compose.yml
+    mode: "0644"
+
+- name: Start monitoring stack
+  ansible.builtin.command: docker compose -f /opt/monitoring/compose.yml up -d
+  register: monitoring_compose
+  changed_when: "'Started' in monitoring_compose.stdout or 'Created' in monitoring_compose.stdout"

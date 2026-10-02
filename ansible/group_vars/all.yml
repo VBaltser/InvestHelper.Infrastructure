@@ -1,0 +1,19 @@
+---
+registry_host: "192.168.56.10"
+registry_port: 5000
+registry_address: "{{ registry_host }}:{{ registry_port }}"
+app_host: "192.168.56.20"
+app_port: 8080
+monitoring_host: "192.168.56.30"
+
+app_git_url: "https://github.com/VBaltser/InvestHelper.git"
+app_git_branch: "main"
+jenkins_admin_user: "admin"
+# Override with Ansible Vault outside an isolated local lab.
+jenkins_admin_password: "change-me-now"
+grafana_admin_password: "change-me-now"
+
+# Application secrets are placeholders. Override them with Ansible Vault.
+tinkoff_token: "your_token_here"
+gemini_api_key: ""
+groq_api_key: ""

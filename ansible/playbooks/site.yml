@@ -1,0 +1,32 @@
+---
+- name: Configure baseline on every VM
+  hosts: all
+  become: true
+  roles:
+    - common
+    - node_exporter
+
+- name: Configure CI, Jenkins and local registry
+  hosts: ci
+  become: true
+  roles:
+    - docker
+    - cadvisor
+    - registry
+    - jenkins
+
+- name: Configure application runtime
+  hosts: app
+  become: true
+  roles:
+    - docker
+    - cadvisor
+    - app
+
+- name: Configure monitoring stack
+  hosts: monitoring
+  become: true
+  roles:
+    - docker
+    - cadvisor
+    - monitoring

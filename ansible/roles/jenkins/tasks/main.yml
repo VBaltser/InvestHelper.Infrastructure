@@ -1,0 +1,140 @@
+---
+- name: Install Java
+  ansible.builtin.apt:
+    name: fontconfig
+    state: present
+
+- name: Install Java runtime
+  ansible.builtin.apt:
+    name: openjdk-17-jre
+    state: present
+
+- name: Download Jenkins signing key
+  ansible.builtin.get_url:
+    url: https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+    dest: /etc/apt/keyrings/jenkins-keyring.asc
+    mode: "0644"
+
+- name: Add Jenkins repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/"
+    filename: jenkins
+    state: present
+
+- name: Install Jenkins
+  ansible.builtin.apt:
+    name: jenkins
+    state: present
+    update_cache: true
+
+- name: Add Jenkins to Docker group
+  ansible.builtin.user:
+    name: jenkins
+    groups: docker
+    append: true
+  notify: Restart Jenkins
+
+- name: Create Jenkins systemd override directory
+  ansible.builtin.file:
+    path: /etc/systemd/system/jenkins.service.d
+    state: directory
+    mode: "0755"
+
+- name: Disable interactive setup wizard
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/jenkins.service.d/override.conf
+    mode: "0644"
+    content: |
+      [Service]
+      Environment="JAVA_OPTS=-Djava.awt.headless=true -Djenkins.install.runSetupWizard=false"
+  notify: Restart Jenkins
+
+- name: Reload systemd configuration
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Create Jenkins initialization directory
+  ansible.builtin.file:
+    path: /var/lib/jenkins/init.groovy.d
+    state: directory
+    owner: jenkins
+    group: jenkins
+    mode: "0750"
+
+- name: Configure Jenkins security
+  ansible.builtin.template:
+    src: 01-security.groovy.j2
+    dest: /var/lib/jenkins/init.groovy.d/01-security.groovy
+    owner: jenkins
+    group: jenkins
+    mode: "0600"
+  no_log: true
+  notify: Restart Jenkins
+
+- name: Apply initial Jenkins configuration
+  ansible.builtin.meta: flush_handlers
+
+- name: Start Jenkins for plugin installation
+  ansible.builtin.service:
+    name: jenkins
+    state: started
+    enabled: true
+
+- name: Wait for Jenkins
+  ansible.builtin.uri:
+    url: http://127.0.0.1:8080/login
+    status_code: 200
+  register: jenkins_ready
+  retries: 30
+  delay: 5
+  until: jenkins_ready.status == 200
+
+- name: Download Jenkins CLI
+  ansible.builtin.get_url:
+    url: http://127.0.0.1:8080/jnlpJars/jenkins-cli.jar
+    dest: /opt/jenkins-cli.jar
+    mode: "0644"
+
+- name: Install required Jenkins plugins
+  ansible.builtin.command:
+    argv:
+      - java
+      - -jar
+      - /opt/jenkins-cli.jar
+      - -s
+      - http://127.0.0.1:8080
+      - -auth
+      - "{{ jenkins_admin_user }}:{{ jenkins_admin_password }}"
+      - install-plugin
+      - -deploy
+      - git
+      - workflow-aggregator
+      - workflow-multibranch
+      - docker-workflow
+      - timestamper
+      - ws-cleanup
+      - ssh-agent
+      - prometheus
+  changed_when: false
+  no_log: true
+
+- name: Configure InvestHelper multibranch job
+  ansible.builtin.template:
+    src: 02-job.groovy.j2
+    dest: /var/lib/jenkins/init.groovy.d/02-job.groovy
+    owner: jenkins
+    group: jenkins
+    mode: "0644"
+  notify: Restart Jenkins
+
+- name: Apply Jenkins handlers before verification
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for configured Jenkins
+  ansible.builtin.uri:
+    url: http://127.0.0.1:8080/login
+    status_code: 200
+  register: configured_jenkins
+  retries: 30
+  delay: 5
+  until: configured_jenkins.status == 200

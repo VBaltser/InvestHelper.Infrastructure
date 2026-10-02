@@ -1,0 +1,19 @@
+services:
+  backend:
+    image: "{{ registry_address }}/investhelper-backend:${APP_VERSION:-latest}"
+    restart: unless-stopped
+    env_file: .env
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    image: "{{ registry_address }}/investhelper-frontend:${APP_VERSION:-latest}"
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "{{ app_port }}:80"

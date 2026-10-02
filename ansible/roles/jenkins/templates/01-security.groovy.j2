@@ -1,0 +1,21 @@
+import jenkins.model.Jenkins
+import hudson.model.User
+import hudson.security.FullControlOnceLoggedInAuthorizationStrategy
+import hudson.security.HudsonPrivateSecurityRealm
+
+def instance = Jenkins.get()
+def realm = instance.getSecurityRealm()
+if (!(realm instanceof HudsonPrivateSecurityRealm)) {
+  realm = new HudsonPrivateSecurityRealm(false)
+  instance.setSecurityRealm(realm)
+}
+if (User.getById("{{ jenkins_admin_user }}", false) == null) {
+  realm.createAccount("{{ jenkins_admin_user }}", "{{ jenkins_admin_password }}")
+}
+
+def authorization = new FullControlOnceLoggedInAuthorizationStrategy()
+authorization.setAllowAnonymousRead(false)
+instance.setAuthorizationStrategy(authorization)
+instance.setNumExecutors(2)
+instance.setLabelString("ci docker vm2")
+instance.save()

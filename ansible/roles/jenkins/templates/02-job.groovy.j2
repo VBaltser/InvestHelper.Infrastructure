@@ -1,0 +1,22 @@
+import jenkins.model.Jenkins
+import jenkins.branch.BranchSource
+import jenkins.plugins.git.GitSCMSource
+import jenkins.plugins.git.traits.BranchDiscoveryTrait
+import org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject
+import org.jenkinsci.plugins.workflow.multibranch.WorkflowBranchProjectFactory
+import com.cloudbees.hudson.plugins.folder.computed.PeriodicFolderTrigger
+
+def jenkins = Jenkins.get()
+def jobName = "InvestHelper"
+def job = jenkins.getItem(jobName)
+
+if (job == null) {
+  job = jenkins.createProject(WorkflowMultiBranchProject.class, jobName)
+  def source = new GitSCMSource("investhelper", "{{ app_git_url }}", "", "*", "", false)
+  source.setTraits([new BranchDiscoveryTrait()])
+  job.setSourcesList([new BranchSource(source)])
+  job.setProjectFactory(new WorkflowBranchProjectFactory())
+  job.addTrigger(new PeriodicFolderTrigger("1m"))
+  job.save()
+  job.scheduleBuild2(0)
+}
