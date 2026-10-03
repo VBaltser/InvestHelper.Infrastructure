@@ -53,14 +53,14 @@ Jenkins автоматически получает плагины и multibranc
 
 ## Секреты
 
-Значения по умолчанию находятся в `ansible/group_vars/all.yml` и пригодны
+Значения по умолчанию находятся в `ansible/inventory/group_vars/all.yml` и пригодны
 только для первоначального запуска. Секреты приложения следует хранить в
 зашифрованном файле:
 
 ```powershell
 vagrant ssh control
 cd /opt/investhelper-ansible
-ansible-vault create group_vars/vault.yml
+ansible-vault create inventory/group_vars/vault.yml
 ```
 
 Пример содержимого:

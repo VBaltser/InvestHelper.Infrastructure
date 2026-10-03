@@ -2,12 +2,16 @@
 - name: Configure baseline on every VM
   hosts: all
   become: true
+  pre_tasks:
+    - name: Prepare Ansible temporary directory for privilege escalation
+      ansible.builtin.raw: install -d -m 0700 /root/.ansible/tmp
+      changed_when: false
   roles:
     - common
     - node_exporter
 
 - name: Configure CI, Jenkins and local registry
-  hosts: ci
+  hosts: ci_nodes
   become: true
   roles:
     - docker
@@ -16,7 +20,7 @@
     - jenkins
 
 - name: Configure application runtime
-  hosts: app
+  hosts: app_nodes
   become: true
   roles:
     - docker
@@ -24,7 +28,7 @@
     - app
 
 - name: Configure monitoring stack
-  hosts: monitoring
+  hosts: monitoring_nodes
   become: true
   roles:
     - docker

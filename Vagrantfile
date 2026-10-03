@@ -75,6 +75,10 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
           curl \
           python3 \
           python3-apt
+
+        # Ansible uses this directory after privilege escalation. Creating it
+        # explicitly avoids the remote_tmp permissions warning.
+        install -d -m 0700 /root/.ansible/tmp
       SHELL
 
       if vm[:role] == :control
