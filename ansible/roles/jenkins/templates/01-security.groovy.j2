@@ -4,14 +4,19 @@ import hudson.security.FullControlOnceLoggedInAuthorizationStrategy
 import hudson.security.HudsonPrivateSecurityRealm
 
 def instance = Jenkins.get()
+def adminUser = {{ jenkins_admin_user | to_json }}
+def adminPassword = {{ jenkins_admin_password | to_json }}
 def realm = instance.getSecurityRealm()
 if (!(realm instanceof HudsonPrivateSecurityRealm)) {
   realm = new HudsonPrivateSecurityRealm(false)
   instance.setSecurityRealm(realm)
 }
-if (User.getById("{{ jenkins_admin_user }}", false) == null) {
-  realm.createAccount("{{ jenkins_admin_user }}", "{{ jenkins_admin_password }}")
-}
+// A User object may already exist even when it has no password in the active
+// security realm. Always set the configured password to keep provisioning
+// deterministic after an interrupted first Jenkins start.
+def admin = User.getById(adminUser, true)
+admin.addProperty(HudsonPrivateSecurityRealm.Details.fromPlainPassword(adminPassword))
+admin.save()
 
 def authorization = new FullControlOnceLoggedInAuthorizationStrategy()
 authorization.setAllowAnonymousRead(false)
