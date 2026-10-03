@@ -115,6 +115,7 @@
       - /opt/jenkins-cli.jar
       - -s
       - http://127.0.0.1:8080
+      - -http
       - -auth
       - "@/root/.jenkins-cli-auth"
       - who-am-i
@@ -129,6 +130,7 @@
       - /opt/jenkins-cli.jar
       - -s
       - http://127.0.0.1:8080
+      - -http
       - -auth
       - "@/root/.jenkins-cli-auth"
       - install-plugin
