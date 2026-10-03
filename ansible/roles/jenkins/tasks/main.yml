@@ -1,17 +1,7 @@
 ---
-- name: Install Java
-  ansible.builtin.apt:
-    name: fontconfig
-    state: present
-
-- name: Install Java runtime
-  ansible.builtin.apt:
-    name: openjdk-17-jre
-    state: present
-
 - name: Download Jenkins signing key
   ansible.builtin.get_url:
-    url: https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+    url: https://pkg.jenkins.io/debian-stable/jenkins.io-2026.key
     dest: /etc/apt/keyrings/jenkins-keyring.asc
     mode: "0644"
     timeout: 60
@@ -20,6 +10,13 @@
   retries: 5
   delay: 10
   until: jenkins_signing_key is succeeded
+
+- name: Install Jenkins runtime dependencies
+  ansible.builtin.apt:
+    name:
+      - fontconfig
+      - openjdk-21-jre
+    state: present
 
 - name: Add Jenkins repository
   ansible.builtin.apt_repository:
