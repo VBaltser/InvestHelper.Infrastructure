@@ -98,6 +98,29 @@
     dest: /opt/jenkins-cli.jar
     mode: "0644"
 
+- name: Create Jenkins CLI authentication file
+  ansible.builtin.copy:
+    dest: /root/.jenkins-cli-auth
+    content: "{{ jenkins_admin_user }}:{{ jenkins_admin_password }}\n"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Verify Jenkins CLI authentication
+  ansible.builtin.command:
+    argv:
+      - java
+      - -jar
+      - /opt/jenkins-cli.jar
+      - -s
+      - http://127.0.0.1:8080
+      - -auth
+      - "@/root/.jenkins-cli-auth"
+      - who-am-i
+  register: jenkins_cli_identity
+  changed_when: false
+
 - name: Install required Jenkins plugins
   ansible.builtin.command:
     argv:
@@ -107,7 +130,7 @@
       - -s
       - http://127.0.0.1:8080
       - -auth
-      - "{{ jenkins_admin_user }}:{{ jenkins_admin_password }}"
+      - "@/root/.jenkins-cli-auth"
       - install-plugin
       - -deploy
       - git
@@ -119,7 +142,11 @@
       - ssh-agent
       - prometheus
   changed_when: false
-  no_log: true
+
+- name: Remove Jenkins CLI authentication file
+  ansible.builtin.file:
+    path: /root/.jenkins-cli-auth
+    state: absent
 
 - name: Configure InvestHelper multibranch job
   ansible.builtin.template:
