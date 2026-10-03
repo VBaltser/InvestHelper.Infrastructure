@@ -57,6 +57,10 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         virtualbox.gui = false
         virtualbox.cpus = vm[:cpus]
         virtualbox.memory = vm[:memory]
+        # Let VirtualBox resolve guest DNS queries through the host. This is
+        # more reliable on Windows hosts with VPNs or corporate DNS.
+        virtualbox.customize ["modifyvm", :id, "--natdnsproxy1", "on"]
+        virtualbox.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
       end
 
       machine.vm.provision "shell", privileged: true, inline: <<-SHELL

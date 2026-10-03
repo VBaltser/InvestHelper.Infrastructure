@@ -15,6 +15,12 @@
     url: https://download.docker.com/linux/ubuntu/gpg
     dest: /etc/apt/keyrings/docker.asc
     mode: "0644"
+    timeout: 60
+    force: true
+  register: docker_signing_key
+  retries: 5
+  delay: 10
+  until: docker_signing_key is succeeded
 
 - name: Add Docker repository
   ansible.builtin.apt_repository:
