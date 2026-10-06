@@ -1,0 +1,63 @@
+---
+- name: Install SSH client for deployments
+  ansible.builtin.apt:
+    name: openssh-client
+    state: present
+
+- name: Create Jenkins SSH directory
+  ansible.builtin.file:
+    path: /var/lib/jenkins/.ssh
+    state: directory
+    owner: jenkins
+    group: jenkins
+    mode: "0700"
+
+- name: Generate dedicated Jenkins deployment key
+  ansible.builtin.command:
+    argv:
+      - ssh-keygen
+      - -q
+      - -t
+      - ed25519
+      - -N
+      - ""
+      - -C
+      - investhelper-jenkins-deploy
+      - -f
+      - /var/lib/jenkins/.ssh/investhelper_deploy_ed25519
+    creates: /var/lib/jenkins/.ssh/investhelper_deploy_ed25519
+  become_user: jenkins
+
+- name: Read Jenkins deployment public key
+  ansible.builtin.slurp:
+    src: /var/lib/jenkins/.ssh/investhelper_deploy_ed25519.pub
+  register: deployment_public_key
+
+- name: Authorize Jenkins key on app
+  ansible.builtin.lineinfile:
+    path: /home/vagrant/.ssh/authorized_keys
+    line: 'restrict {{ deployment_public_key.content | b64decode | trim }}'
+    create: true
+    owner: vagrant
+    group: vagrant
+    mode: "0600"
+  delegate_to: "{{ groups['app_nodes'][0] }}"
+
+- name: Read trusted app host key through Ansible
+  ansible.builtin.slurp:
+    src: /etc/ssh/ssh_host_ed25519_key.pub
+  register: deployment_host_key
+  delegate_to: "{{ groups['app_nodes'][0] }}"
+
+- name: Pin app host key for Jenkins deployments
+  ansible.builtin.known_hosts:
+    path: /var/lib/jenkins/.ssh/known_hosts
+    name: "{{ app_host }}"
+    key: "{{ app_host }} {{ (deployment_host_key.content | b64decode).split()[0:2] | join(' ') }}"
+
+- name: Set known hosts ownership
+  ansible.builtin.file:
+    path: /var/lib/jenkins/.ssh/known_hosts
+    owner: jenkins
+    group: jenkins
+    mode: "0600"

@@ -4,6 +4,7 @@ registry_port: 5000
 registry_address: "{{ registry_host }}:{{ registry_port }}"
 app_host: "192.168.56.20"
 app_port: 8080
+app_staging_port: 8082
 monitoring_host: "192.168.56.30"
 
 app_git_url: "https://github.com/VBaltser/InvestHelper.git"

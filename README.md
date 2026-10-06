@@ -51,7 +51,31 @@ vagrant ssh control -c "cd /opt/investhelper-ansible && ansible all -m ping"
 Jenkins автоматически получает плагины и multibranch job `InvestHelper`,
 который сканирует публичный GitHub-репозиторий раз в минуту.
 
-## Секреты
+## Деплой из Jenkins
+
+`Jenkinsfile` находится в репозитории приложения. Все стадии выполняются на
+узле `ci`, а Deploy собирает Docker-образы backend/frontend, публикует их в
+`192.168.56.10:5000` и по SSH вызывает `deploy-investhelper` на `app`.
+Ansible создаёт отдельный ключ Jenkins и закрепляет SSH host key машины `app`.
+
+Деплой выполняется только для ветки `main` при `RUN_DEPLOY=true` после успешных
+Build и Test. `APP_VERSION` задаёт префикс тега; номер сборки и Git SHA делают
+тег уникальным. `DEPLOY_ENV=prod` публикует приложение на порту 8080,
+`staging` — на 8082, отдельным Compose-проектом. Скрипт ждёт готовности обоих
+контейнеров и проверяет `/health` и `/api/health`.
+
+Для существующего стенда примените изменения инфраструктуры:
+
+```powershell
+vagrant provision control
+```
+
+Затем отправьте обновлённый Jenkinsfile в Git-репозиторий приложения и запустите
+Build with Parameters в Jenkins. На `app` версия последнего успешного деплоя
+сохраняется в `/opt/investhelper/.deploy-prod.env` или `.deploy-staging.env`.
+Файл `.env` с секретами остаётся на `app` и управляется Ansible.
+
+## Секреты приложения
 
 Значения по умолчанию находятся в `ansible/inventory/group_vars/all.yml` и пригодны
 только для первоначального запуска. Секреты приложения следует хранить в

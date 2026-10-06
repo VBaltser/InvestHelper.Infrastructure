@@ -1,9 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-version="${1:?usage: deploy-investhelper VERSION}"
+version="${1:?usage: deploy-investhelper VERSION [staging|prod]}"
+environment="${2:-prod}"
+[[ "$version" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$ ]] || exit 2
+case "$environment" in
+  prod) export APP_PORT={{ app_port }} COMPOSE_PROJECT_NAME=investhelper ;;
+  staging) export APP_PORT={{ app_staging_port }} COMPOSE_PROJECT_NAME=investhelper-staging ;;
+  *) echo "Unknown environment: $environment" >&2; exit 2 ;;
+esac
 cd /opt/investhelper
+# Serialize deployments from different Jenkins jobs on this VM.
+exec 9>.deploy.lock
+flock -w 300 9
 export APP_VERSION="$version"
-docker compose pull
-docker compose up -d --remove-orphans
-curl --fail --retry 12 --retry-delay 5 "http://127.0.0.1:{{ app_port }}/health"
+docker compose -f compose.yml pull
+docker compose -f compose.yml up -d --remove-orphans --wait --wait-timeout 120
+curl --fail --max-time 10 "http://127.0.0.1:$APP_PORT/health"
+curl --fail --max-time 10 "http://127.0.0.1:$APP_PORT/api/health"
+printf 'APP_VERSION=%s\nAPP_PORT=%s\nCOMPOSE_PROJECT_NAME=%s\n' \
+  "$APP_VERSION" "$APP_PORT" "$COMPOSE_PROJECT_NAME" > ".deploy-$environment.env"
