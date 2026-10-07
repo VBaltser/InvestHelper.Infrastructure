@@ -9,6 +9,7 @@ import com.cloudbees.hudson.plugins.folder.computed.PeriodicFolderTrigger
 def jenkins = Jenkins.get()
 def jobName = "InvestHelper"
 def job = jenkins.getItem(jobName)
+def created = job == null
 
 if (job == null) {
   job = jenkins.createProject(WorkflowMultiBranchProject.class, jobName)
@@ -16,7 +17,10 @@ if (job == null) {
   source.setTraits([new BranchDiscoveryTrait()])
   job.setSourcesList([new BranchSource(source)])
   job.setProjectFactory(new WorkflowBranchProjectFactory())
-  job.addTrigger(new PeriodicFolderTrigger("1m"))
-  job.save()
+}
+// Keep branch discovery enabled on existing installations as well.
+job.addTrigger(new PeriodicFolderTrigger("1m"))
+job.save()
+if (created) {
   job.scheduleBuild2(0)
 }

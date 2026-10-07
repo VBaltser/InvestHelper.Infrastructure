@@ -166,6 +166,7 @@
       - ws-cleanup
       - ssh-agent
       - prometheus
+      - junit
   changed_when: false
 
 - name: Remove Jenkins CLI authentication file
