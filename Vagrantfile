@@ -42,6 +42,9 @@ hosts_entries_base64 = Base64.strict_encode64("#{hosts_entries}\n")
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.box = "ubuntu/jammy64"
   config.vm.box_check_update = false
+  # Windows Hyper-V/NEM can make guest boot exceed the default 300 seconds.
+  # This tolerates slow boots; it does not resolve host hypervisor contention.
+  config.vm.boot_timeout = 600
 
   # Configuration is delivered over SSH, so the machines do not need the
   # VirtualBox shared-folder plugin or Guest Additions.

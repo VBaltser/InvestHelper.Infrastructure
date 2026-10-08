@@ -7,6 +7,38 @@
     group: vagrant
     mode: "0750"
 
+- name: Create application certificate directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - /opt/investhelper/ca-sources
+    - /opt/investhelper/certs
+
+- name: Copy standard system trust bundle
+  ansible.builtin.copy:
+    src: /etc/ssl/certs/ca-certificates.crt
+    dest: /opt/investhelper/ca-sources/00-system.crt
+    remote_src: true
+    mode: "0644"
+
+- name: Install public Russian trusted certificates for T-Invest
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/opt/investhelper/ca-sources/{{ item }}"
+    mode: "0644"
+  loop:
+    - russian_trusted_root_ca.crt
+    - russian_trusted_sub_ca.crt
+
+- name: Assemble T-Invest trust bundle
+  ansible.builtin.assemble:
+    src: /opt/investhelper/ca-sources
+    dest: /opt/investhelper/certs/tinkoff-ca.pem
+    delimiter: "\n"
+    mode: "0644"
+
 - name: Install runtime Compose definition
   ansible.builtin.template:
     src: compose.yml.j2

@@ -36,6 +36,29 @@ vagrant status
 vagrant ssh control -c "cd /opt/investhelper-ansible && ansible all -m ping"
 ```
 
+## Загрузка VM на Windows
+
+Vagrant ждёт доступности SSH до 600 секунд. Сообщение `Fixed port collision`
+означает автоматический выбор свободного порта и само по себе не является ошибкой.
+Если ожидание завершается тайм-аутом, сначала проверьте `vagrant ssh <имя>`:
+гостевая ОС может закончить загрузку уже после завершения команды `up`.
+
+В журнале `%USERPROFILE%\VirtualBox VMs\investhelper-<имя>\Logs\VBox.log`
+строки `AMD-V is not available`, `NEMR3Init: Snail execution mode is active`
+и большие задержки `Giving up catch-up attempt` указывают на работу через
+гипервизор Windows и замедление исполнения VM.
+[Oracle описывает конфликт VirtualBox с Hyper-V](https://docs.oracle.com/en/virtualization/virtualbox/7.2/user/Troubleshooting.html).
+Для использования аппаратной виртуализации напрямую отключите компоненты
+Hyper-V, Virtual Machine Platform и Windows Hypervisor Platform в компонентах
+Windows, затем перезагрузите компьютер. Это затронет WSL2 и программы,
+использующие Hyper-V. Изоляция ядра и целостность памяти также могут удерживать
+гипервизор включённым; отключение этих защит снижает безопасность Windows.
+
+Увеличение тайм-аута даёт больше времени на загрузку, но не устраняет конфликт.
+После тайм-аута и успешной проверки SSH можно завершить настройку командой
+`vagrant up`. Если VM так и не отвечает, попробуйте
+`vagrant reload <имя> --no-provision` и повторно проверьте SSH.
+
 ## Адреса сервисов
 
 - Jenkins: <http://192.168.56.10:8080>
@@ -87,6 +110,17 @@ Build with Parameters в Jenkins. На `app` версия последнего �
 критерий диплома остаётся невыполненным.
 
 ## Секреты приложения
+
+Для TLS T-Invest роль `app` собирает отдельный набор CA из системных сертификатов
+Ubuntu и публичных Russian Trusted Root/Sub CA. Он монтируется только в backend
+как `/app/certs/tinkoff-ca.pem` и задаётся через `TINKOFF_SSL_CA_FILE`.
+Проверка сертификатов остаётся включённой. Публичные сертификаты в
+`ansible/roles/app/files` получены по HTTPS с
+`https://gu-st.ru/content/lending/russian_trusted_root_ca_pem.crt` и
+`https://gu-st.ru/content/lending/russian_trusted_sub_ca_pem.crt`.
+[Инструкция Т-Банка](https://developer.tbank.ru/docs/tls-settings).
+После изменения набора CA повторно примените роль и пересоздайте backend
+через `deploy-investhelper` с текущим тегом образа.
 
 Значения по умолчанию находятся в `ansible/inventory/group_vars/all.yml` и пригодны
 только для первоначального запуска. Секреты приложения следует хранить в
