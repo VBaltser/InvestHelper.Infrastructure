@@ -1,4 +1,26 @@
 ---
+- name: Configure VirtualBox NAT DNS instead of DHCP DNS from host network
+  ansible.builtin.copy:
+    dest: /etc/netplan/99-investhelper-dns.yaml
+    mode: "0600"
+    content: |
+      network:
+        version: 2
+        ethernets:
+          enp0s3:
+            dhcp4: true
+            dhcp4-overrides:
+              use-dns: false
+            dhcp6-overrides:
+              use-dns: false
+            nameservers:
+              addresses: [10.0.2.3]
+  register: virtualbox_dns_config
+
+- name: Apply VirtualBox NAT DNS configuration
+  ansible.builtin.command: netplan apply
+  when: virtualbox_dns_config.changed
+
 - name: Install common packages
   ansible.builtin.apt:
     name: [ca-certificates, curl, git, jq, unzip]
