@@ -8,3 +8,13 @@ groups:
           severity: critical
         annotations:
           summary: "Target {{ $labels.instance }} is unavailable"
+  - name: application
+    rules:
+      - alert: InvestHelperUnavailable
+        expr: probe_success{job="investhelper"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "InvestHelper {{ $labels.instance }} is unavailable"
+          description: "The application HTTP probe has failed for at least one minute."

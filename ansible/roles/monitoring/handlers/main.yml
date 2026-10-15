@@ -1,0 +1,4 @@
+---
+# Recreate so single-file bind mounts see files replaced atomically by Ansible.
+- name: Recreate Prometheus to load configuration
+  ansible.builtin.command: docker compose -f /opt/monitoring/compose.yml up -d --force-recreate prometheus

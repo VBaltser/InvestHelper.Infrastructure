@@ -14,12 +14,14 @@
     src: prometheus.yml.j2
     dest: /opt/monitoring/prometheus/prometheus.yml
     mode: "0644"
+  notify: Recreate Prometheus to load configuration
 
 - name: Install Prometheus alert rules
   ansible.builtin.copy:
     src: alerts.yml
     dest: /opt/monitoring/prometheus/alerts.yml
     mode: "0644"
+  notify: Recreate Prometheus to load configuration
 
 - name: Install Alertmanager configuration
   ansible.builtin.copy:
