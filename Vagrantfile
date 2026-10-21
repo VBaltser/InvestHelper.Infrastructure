@@ -17,6 +17,11 @@ VM_CONFIG = {
 VAGRANT_STATE_DIR = File.expand_path(".vagrant", __dir__)
 ANSIBLE_PRIVATE_KEY = File.join(VAGRANT_STATE_DIR, "ansible_control_ed25519")
 ANSIBLE_PUBLIC_KEY = "#{ANSIBLE_PRIVATE_KEY}.pub"
+BOOTSTRAP_SECRETS = ENV["INVESTHELPER_SECRETS_FILE"]
+VAULT_PASSWORD_FILE = ENV["INVESTHELPER_VAULT_PASSWORD_FILE"]
+[BOOTSTRAP_SECRETS, VAULT_PASSWORD_FILE].compact.each do |path|
+  raise "Bootstrap input file does not exist: #{path}" unless File.file?(path)
+end
 
 unless File.exist?(ANSIBLE_PRIVATE_KEY) && File.exist?(ANSIBLE_PUBLIC_KEY)
   FileUtils.mkdir_p(VAGRANT_STATE_DIR)
@@ -76,6 +81,16 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         done < /tmp/investhelper-hosts
         rm -f /tmp/investhelper-hosts
 
+        # Configure DNS before the first apt invocation, not only later in Ansible.
+        printf '%s\n' \
+          'network:' '  version: 2' '  ethernets:' '    enp0s3:' \
+          '      dhcp4: true' '      dhcp4-overrides:' '        use-dns: false' \
+          '      dhcp6-overrides:' '        use-dns: false' \
+          '      nameservers:' '        addresses: [10.0.2.3]' \
+          > /etc/netplan/99-investhelper-dns.yaml
+        chmod 0600 /etc/netplan/99-investhelper-dns.yaml
+        netplan apply
+
         apt-get update
         DEBIAN_FRONTEND=noninteractive apt-get install -y \
           ca-certificates \
@@ -89,6 +104,17 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       SHELL
 
       if vm[:role] == :control
+        if BOOTSTRAP_SECRETS
+          machine.vm.provision "shell", privileged: true, inline: <<-SHELL
+            install -d -m 0700 -o vagrant -g vagrant /home/vagrant/.config/investhelper
+          SHELL
+          machine.vm.provision "file", source: BOOTSTRAP_SECRETS,
+            destination: "/home/vagrant/.config/investhelper/bootstrap.yml"
+          if VAULT_PASSWORD_FILE
+            machine.vm.provision "file", source: VAULT_PASSWORD_FILE,
+              destination: "/home/vagrant/.config/investhelper/vault-password"
+          end
+        end
         machine.vm.provision "file",
           source: ANSIBLE_PRIVATE_KEY,
           destination: "/tmp/ansible_control_ed25519"
@@ -99,6 +125,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
         machine.vm.provision "shell", privileged: true, inline: <<-SHELL
           set -eu
 
+          trap 'rm -f /home/vagrant/.config/investhelper/vault-password' EXIT
           DEBIAN_FRONTEND=noninteractive apt-get install -y ansible
 
           install -d -m 0700 -o vagrant -g vagrant /home/vagrant/.ssh
@@ -107,11 +134,27 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
             /home/vagrant/.ssh/ansible_control_ed25519
           rm -f /tmp/ansible_control_ed25519
 
-          rm -rf /opt/investhelper-ansible
-          mv /tmp/ansible /opt/investhelper-ansible
+          # Preserve locally added encrypted group_vars on repeated provisioning.
+          install -d /opt/investhelper-ansible
+          cp -a /tmp/ansible/. /opt/investhelper-ansible/
+          rm -rf /tmp/ansible
           chown -R vagrant:vagrant /opt/investhelper-ansible
-          sudo -u vagrant bash -lc \
-            'cd /opt/investhelper-ansible && ansible-playbook playbooks/site.yml'
+          if [ "#{BOOTSTRAP_SECRETS ? 'yes' : 'no'}" = yes ]; then
+            secret_dir=/home/vagrant/.config/investhelper
+            chmod 0600 "$secret_dir/bootstrap.yml"
+            # The decryption password is needed only for this provisioning run.
+            if [ "#{VAULT_PASSWORD_FILE ? 'yes' : 'no'}" = yes ]; then
+              chmod 0600 "$secret_dir/vault-password"
+              sudo -u vagrant bash -lc \
+                'cd /opt/investhelper-ansible && ansible-playbook playbooks/bootstrap.yml --extra-vars @/home/vagrant/.config/investhelper/bootstrap.yml --vault-password-file /home/vagrant/.config/investhelper/vault-password'
+            else
+              sudo -u vagrant bash -lc \
+                'cd /opt/investhelper-ansible && ansible-playbook playbooks/bootstrap.yml --extra-vars @/home/vagrant/.config/investhelper/bootstrap.yml'
+            fi
+          else
+            sudo -u vagrant bash -lc \
+              'cd /opt/investhelper-ansible && ansible-playbook playbooks/site.yml'
+          fi
         SHELL
       else
         machine.vm.provision "shell", privileged: true, inline: <<-SHELL

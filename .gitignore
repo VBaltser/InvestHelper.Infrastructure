@@ -1,3 +1,4 @@
 .vagrant/
+.secrets/
 ansible/inventory/group_vars/vault.yml
 *.retry

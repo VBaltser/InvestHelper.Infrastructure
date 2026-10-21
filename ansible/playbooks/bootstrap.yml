@@ -1,0 +1,20 @@
+---
+- name: Validate bootstrap configuration before changing services
+  hosts: control_nodes
+  gather_facts: false
+  tasks:
+    - name: Require real bootstrap secrets
+      ansible.builtin.assert:
+        that:
+          - lookup('vars', item, default='') | string | length > 0
+          - lookup('vars', item, default='') not in ['REPLACE_ME', 'your_token_here', 'change-me-now']
+        fail_msg: "Fill all required secrets in the bootstrap file."
+      loop:
+        - jenkins_admin_password
+        - grafana_admin_password
+        - tinkoff_token
+        - telegram_bot_token
+        - telegram_chat_id
+      no_log: true
+
+- import_playbook: site.yml

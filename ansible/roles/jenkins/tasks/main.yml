@@ -167,12 +167,9 @@
       - ssh-agent
       - prometheus
       - junit
+      - credentials-binding
+      - plain-credentials
   changed_when: false
-
-- name: Remove Jenkins CLI authentication file
-  ansible.builtin.file:
-    path: /root/.jenkins-cli-auth
-    state: absent
 
 - name: Configure InvestHelper multibranch job
   ansible.builtin.template:
@@ -181,6 +178,19 @@
     owner: jenkins
     group: jenkins
     mode: "0644"
+  notify: Restart Jenkins
+
+- name: Configure Telegram credentials automatically when supplied
+  ansible.builtin.template:
+    src: 00-telegram.groovy.j2
+    dest: /var/lib/jenkins/init.groovy.d/00-telegram.groovy
+    owner: jenkins
+    group: jenkins
+    mode: "0600"
+  when:
+    - telegram_bot_token | default('') | length > 0
+    - telegram_chat_id | default('') | string | length > 0
+  no_log: true
   notify: Restart Jenkins
 
 - name: Apply Jenkins handlers before verification
@@ -194,3 +204,40 @@
   retries: 30
   delay: 5
   until: configured_jenkins.status == 200
+
+- name: Verify bootstrap Telegram credentials were created
+  ansible.builtin.command:
+    argv:
+      - java
+      - -jar
+      - /opt/jenkins-cli.jar
+      - -s
+      - http://127.0.0.1:8080
+      - -http
+      - -auth
+      - "@/root/.jenkins-cli-auth"
+      - groovy
+      - "="
+    stdin: |
+      import com.cloudbees.plugins.credentials.SystemCredentialsProvider
+      import com.cloudbees.plugins.credentials.domains.Domain
+      import org.jenkinsci.plugins.plaincredentials.StringCredentials
+      def credentials = SystemCredentialsProvider.getInstance().getStore().getCredentials(Domain.global())
+      ['telegram-bot-token', 'telegram-chat-id'].each { id ->
+        assert credentials.any { it.id == id && it instanceof StringCredentials }
+      }
+      println('Telegram credentials are configured')
+  changed_when: false
+  when:
+    - telegram_bot_token | default('') | length > 0
+    - telegram_chat_id | default('') | string | length > 0
+
+- name: Remove Jenkins CLI authentication file
+  ansible.builtin.file:
+    path: /root/.jenkins-cli-auth
+    state: absent
+
+- name: Remove plaintext Telegram initialization script after startup
+  ansible.builtin.file:
+    path: /var/lib/jenkins/init.groovy.d/00-telegram.groovy
+    state: absent

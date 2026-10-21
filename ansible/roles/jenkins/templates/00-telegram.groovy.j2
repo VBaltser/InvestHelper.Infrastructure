@@ -1,0 +1,21 @@
+import jenkins.model.Jenkins
+import com.cloudbees.plugins.credentials.CredentialsScope
+import com.cloudbees.plugins.credentials.SystemCredentialsProvider
+import com.cloudbees.plugins.credentials.domains.Domain
+import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl
+import hudson.util.Secret
+
+def store = SystemCredentialsProvider.getInstance().getStore()
+def domain = Domain.global()
+def values = [
+  'telegram-bot-token': {{ telegram_bot_token | to_json }},
+  'telegram-chat-id': {{ telegram_chat_id | string | to_json }}
+]
+values.each { id, value ->
+  def credential = new StringCredentialsImpl(CredentialsScope.GLOBAL, id,
+    'Managed by Ansible', Secret.fromString(value))
+  def existing = store.getCredentials(domain).find { it.id == id }
+  def saved = existing ? store.updateCredentials(domain, existing, credential) :
+    store.addCredentials(domain, credential)
+  if (!saved) { throw new IllegalStateException('Cannot configure Telegram credential: ' + id) }
+}

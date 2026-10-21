@@ -1,0 +1,9 @@
+# Copy to .secrets/bootstrap.yml, fill locally, and preferably encrypt with Ansible Vault.
+# Never commit populated secrets or a Vault password to Git.
+jenkins_admin_password: "REPLACE_ME"
+grafana_admin_password: "REPLACE_ME"
+tinkoff_token: "REPLACE_ME"
+telegram_bot_token: "REPLACE_ME"
+telegram_chat_id: "REPLACE_ME"
+gemini_api_key: ""
+groq_api_key: ""

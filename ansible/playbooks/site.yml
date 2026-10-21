@@ -2,13 +2,28 @@
 - name: Configure baseline on every VM
   hosts: all
   become: true
+  gather_facts: false
   pre_tasks:
+    - name: Wait for every VM to accept Ansible SSH connections
+      ansible.builtin.wait_for_connection:
+        timeout: 180
+        sleep: 5
+    - name: Gather facts after SSH is ready
+      ansible.builtin.setup:
     - name: Prepare Ansible temporary directory for privilege escalation
       ansible.builtin.raw: install -d -m 0700 /root/.ansible/tmp
       changed_when: false
   roles:
     - common
     - node_exporter
+
+- name: Configure application runtime
+  hosts: app_nodes
+  become: true
+  roles:
+    - docker
+    - cadvisor
+    - app
 
 - name: Configure CI, Jenkins and local registry
   hosts: ci_nodes
@@ -18,14 +33,6 @@
     - cadvisor
     - registry
     - jenkins
-
-- name: Configure application runtime
-  hosts: app_nodes
-  become: true
-  roles:
-    - docker
-    - cadvisor
-    - app
 
 - name: Configure monitoring stack
   hosts: monitoring_nodes
