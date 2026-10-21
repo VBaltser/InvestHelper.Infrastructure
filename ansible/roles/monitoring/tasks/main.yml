@@ -23,11 +23,43 @@
     mode: "0644"
   notify: Recreate Prometheus to load configuration
 
-- name: Install Alertmanager configuration
+- name: Check Telegram configuration is complete
+  ansible.builtin.assert:
+    that:
+      - (telegram_bot_token | default('') | length > 0) == (telegram_chat_id | default('') | string | length > 0)
+      - telegram_chat_id | default('0') | string is match('^-?[0-9]+$')
+  no_log: true
+  tags: [alertmanager]
+
+- name: Inspect existing Alertmanager configuration
+  ansible.builtin.stat:
+    path: /opt/monitoring/alertmanager/alertmanager.yml
+  register: alertmanager_config
+  tags: [alertmanager]
+
+- name: Install fallback Alertmanager configuration only on unconfigured systems
   ansible.builtin.copy:
     src: alertmanager.yml
     dest: /opt/monitoring/alertmanager/alertmanager.yml
     mode: "0644"
+  when:
+    - not alertmanager_config.stat.exists
+    - telegram_bot_token | default('') | length == 0
+  notify: Recreate Alertmanager to load configuration
+  tags: [alertmanager]
+
+- name: Configure Alertmanager Telegram receiver
+  ansible.builtin.template:
+    src: alertmanager.yml.j2
+    dest: /opt/monitoring/alertmanager/alertmanager.yml
+    owner: root
+    group: "65534"
+    mode: "0640"
+    validate: 'docker run --rm --network none --user 0 --entrypoint /bin/amtool -v %s:/etc/alertmanager/alertmanager.yml:ro prom/alertmanager:v0.27.0 check-config /etc/alertmanager/alertmanager.yml'
+  when: telegram_bot_token | default('') | length > 0
+  no_log: true
+  notify: Recreate Alertmanager to load configuration
+  tags: [alertmanager]
 
 - name: Provision Grafana datasource
   ansible.builtin.copy:

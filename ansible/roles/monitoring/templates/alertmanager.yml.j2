@@ -1,0 +1,27 @@
+route:
+  receiver: telegram
+  group_by: [alertname, instance]
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 4h
+
+receivers:
+  - name: telegram
+    telegram_configs:
+      - bot_token: {{ telegram_bot_token | to_json }}
+        chat_id: {{ telegram_chat_id | int }}
+        send_resolved: true
+        parse_mode: ''
+        message: |-
+{% raw %}
+          InvestHelper monitoring: {{ .Status | toUpper }}
+          {{ range .Alerts }}
+          Alert: {{ .Labels.alertname }}
+          Status: {{ .Status | toUpper }}
+          Target: {{ .Labels.instance }}
+          Severity: {{ .Labels.severity }}
+          {{ .Annotations.summary }}
+          {{ end }}
+          Prometheus: http://192.168.56.30:9090/alerts
+          Alertmanager: http://192.168.56.30:9093/
+{% endraw %}
